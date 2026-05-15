@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: CSV Data Analyst API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: dataset
+    description: Dataset upload and preview operations
+  - name: query
+    description: Natural language query operations
 paths:
   /healthz:
     get:
@@ -24,6 +28,208 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /upload:
+    post:
+      operationId: uploadFile
+      tags: [dataset]
+      summary: Upload a CSV or Excel file
+      description: Upload a CSV or Excel file for analysis (multipart/form-data, field name 'file')
+      responses:
+        "200":
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /dataset-summary:
+    get:
+      operationId: getDatasetSummary
+      tags: [dataset]
+      summary: Get dataset summary
+      description: Returns summary statistics and metadata for the uploaded dataset
+      parameters:
+        - in: query
+          name: session_id
+          required: false
+          schema:
+            type: string
+          description: Session ID for the dataset
+      responses:
+        "200":
+          description: Dataset summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetSummary"
+        "404":
+          description: No dataset found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /dataset-preview:
+    get:
+      operationId: getDatasetPreview
+      tags: [dataset]
+      summary: Get dataset preview rows
+      description: Returns the first N rows of the dataset as a table
+      parameters:
+        - in: query
+          name: session_id
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Dataset preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetPreview"
+        "404":
+          description: No dataset found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /query:
+    post:
+      operationId: runQuery
+      tags: [query]
+      summary: Run a natural language query
+      description: Submit a natural language question, get AI-generated analysis, charts, and insights
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryInput"
+      responses:
+        "200":
+          description: Query result with chart and insights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Query could not be processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /query-history:
+    get:
+      operationId: getQueryHistory
+      tags: [query]
+      summary: Get query history
+      description: Returns the history of all queries run in the current session
+      parameters:
+        - in: query
+          name: session_id
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Query history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QueryHistoryItem"
+
+  /export-results:
+    post:
+      operationId: exportResults
+      tags: [query]
+      summary: Export query results as CSV
+      description: Export the result dataframe from a query as a downloadable CSV
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportInput"
+      responses:
+        "200":
+          description: CSV content
+          content:
+            text/csv:
+              schema:
+                type: string
+        "404":
+          description: Query result not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sample-datasets:
+    get:
+      operationId: getSampleDatasets
+      tags: [dataset]
+      summary: List sample datasets
+      description: Returns a list of built-in sample datasets the user can load
+      responses:
+        "200":
+          description: Sample datasets list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SampleDataset"
+
+  /load-sample:
+    post:
+      operationId: loadSampleDataset
+      tags: [dataset]
+      summary: Load a sample dataset
+      description: Load one of the built-in sample datasets for analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SampleDatasetInput"
+      responses:
+        "200":
+          description: Sample dataset loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResult"
+        "404":
+          description: Sample dataset not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +240,176 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        detail:
+          type: ["string", "null"]
+
+    UploadResult:
+      type: object
+      required: [session_id, filename, rows, columns, message]
+      properties:
+        session_id:
+          type: string
+        filename:
+          type: string
+        rows:
+          type: integer
+        columns:
+          type: integer
+        message:
+          type: string
+        column_names:
+          type: array
+          items:
+            type: string
+
+    ColumnInfo:
+      type: object
+      required: [name, dtype, null_count, null_pct]
+      properties:
+        name:
+          type: string
+        dtype:
+          type: string
+        null_count:
+          type: integer
+        null_pct:
+          type: number
+        sample_values:
+          type: array
+          items: {}
+
+    DatasetSummary:
+      type: object
+      required: [session_id, filename, rows, columns, columns_info]
+      properties:
+        session_id:
+          type: string
+        filename:
+          type: string
+        rows:
+          type: integer
+        columns:
+          type: integer
+        columns_info:
+          type: array
+          items:
+            $ref: "#/components/schemas/ColumnInfo"
+        numeric_summary:
+          type: object
+          additionalProperties: {}
+        memory_usage:
+          type: ["string", "null"]
+
+    DatasetPreview:
+      type: object
+      required: [columns, rows, total_rows]
+      properties:
+        columns:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: array
+            items: {}
+        total_rows:
+          type: integer
+
+    QueryInput:
+      type: object
+      required: [question]
+      properties:
+        question:
+          type: string
+          minLength: 1
+        session_id:
+          type: ["string", "null"]
+
+    QueryResult:
+      type: object
+      required: [query_id, question, answer]
+      properties:
+        query_id:
+          type: string
+        question:
+          type: string
+        answer:
+          type: string
+        chart:
+          $ref: "#/components/schemas/ChartData"
+        result_table:
+          $ref: "#/components/schemas/DatasetPreview"
+        insights:
+          type: array
+          items:
+            type: string
+        generated_code:
+          type: ["string", "null"]
+        execution_time_ms:
+          type: number
+
+    ChartData:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [bar, line, pie, scatter, histogram, none]
+        plotly_json:
+          type: ["string", "null"]
+          description: Plotly figure serialized as JSON string
+
+    QueryHistoryItem:
+      type: object
+      required: [query_id, question, answer, created_at]
+      properties:
+        query_id:
+          type: string
+        question:
+          type: string
+        answer:
+          type: string
+        chart_type:
+          type: ["string", "null"]
+        created_at:
+          type: string
+        has_chart:
+          type: boolean
+        has_table:
+          type: boolean
+
+    ExportInput:
+      type: object
+      required: [query_id]
+      properties:
+        query_id:
+          type: string
+
+    SampleDataset:
+      type: object
+      required: [id, name, description, rows, columns]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        rows:
+          type: integer
+        columns:
+          type: integer
+
+    SampleDatasetInput:
+      type: object
+      required: [dataset_id]
+      properties:
+        dataset_id:
+          type: string
