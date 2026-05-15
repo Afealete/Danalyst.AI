@@ -1,5 +1,7 @@
 """DataLens FastAPI backend — AI-powered CSV data analyst."""
 import os
+import json
+import math
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +16,42 @@ from routes.dataset import router as dataset_router
 from routes.query import router as query_router
 
 
+class NumpySafeJSONResponse(JSONResponse):
+    """
+    JSONResponse subclass that handles numpy/pandas scalar types (int64,
+    float64, NaN, Inf) that the default encoder would raise TypeError on.
+    """
+    def render(self, content) -> bytes:
+        def _default(obj):
+            try:
+                import numpy as np
+                if isinstance(obj, np.integer):
+                    return int(obj)
+                if isinstance(obj, np.floating):
+                    if math.isnan(float(obj)) or math.isinf(float(obj)):
+                        return None
+                    return float(obj)
+                if isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                if isinstance(obj, np.bool_):
+                    return bool(obj)
+            except ImportError:
+                pass
+            try:
+                import pandas as pd
+                if isinstance(obj, pd.Timestamp):
+                    return obj.isoformat()
+                if obj is pd.NA:
+                    return None
+            except ImportError:
+                pass
+            if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+                return None
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+        return json.dumps(content, default=_default, ensure_ascii=False).encode("utf-8")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("DataLens API starting up...")
@@ -26,6 +64,7 @@ app = FastAPI(
     description="AI-powered CSV data analyst",
     version="1.0.0",
     lifespan=lifespan,
+    default_response_class=NumpySafeJSONResponse,
 )
 
 app.add_middleware(
@@ -39,7 +78,7 @@ app.add_middleware(
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
+    return NumpySafeJSONResponse(
         status_code=500,
         content={"error": "Internal server error", "detail": str(exc)},
     )

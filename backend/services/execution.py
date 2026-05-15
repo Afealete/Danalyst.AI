@@ -11,12 +11,18 @@ from utils.validator import validate_code
 
 SAFE_GLOBALS = {
     "__builtins__": {
+        # __import__ is required for `import X` statements inside exec'd code.
+        # It is safe here because AST validation already blocks disallowed modules
+        # before we ever reach exec().
+        "__import__": __import__,
         "len": len, "range": range, "enumerate": enumerate, "zip": zip,
         "list": list, "dict": dict, "tuple": tuple, "set": set,
         "str": str, "int": int, "float": float, "bool": bool,
         "round": round, "abs": abs, "min": min, "max": max, "sum": sum,
+        "any": any, "all": all, "map": map, "filter": filter,
         "sorted": sorted, "reversed": reversed, "isinstance": isinstance,
         "type": type, "print": lambda *args, **kwargs: None,
+        "hasattr": hasattr, "callable": callable,
         "True": True, "False": False, "None": None,
         "ValueError": ValueError, "TypeError": TypeError, "KeyError": KeyError,
         "IndexError": IndexError, "AttributeError": AttributeError,
@@ -107,6 +113,16 @@ def execute_code(code: str, df: pd.DataFrame) -> ExecutionResult:
     )
 
 
+def _df_to_safe_rows(df: pd.DataFrame) -> list:
+    """
+    Convert a DataFrame to a list of rows with only JSON-serializable Python types.
+    Uses pandas' own JSON round-trip so numpy int64/float64/NaN are all handled.
+    """
+    import json as _json
+    raw = _json.loads(df.to_json(orient="split", date_format="iso"))
+    return raw["data"]
+
+
 def result_to_preview(result: Any, max_rows: int = 100) -> Optional[dict]:
     """Convert execution result to DatasetPreview dict (for table display)."""
     if result is None:
@@ -115,19 +131,17 @@ def result_to_preview(result: Any, max_rows: int = 100) -> Optional[dict]:
     try:
         if isinstance(result, pd.DataFrame):
             df_r = result.head(max_rows)
-            df_r = df_r.where(pd.notnull(df_r), None)
             return {
-                "columns": df_r.columns.tolist(),
-                "rows": df_r.values.tolist(),
-                "total_rows": len(result)
+                "columns": [str(c) for c in df_r.columns],
+                "rows": _df_to_safe_rows(df_r),
+                "total_rows": int(len(result)),
             }
         elif isinstance(result, pd.Series):
             df_r = result.head(max_rows).reset_index()
-            df_r = df_r.where(pd.notnull(df_r), None)
             return {
-                "columns": df_r.columns.tolist(),
-                "rows": df_r.values.tolist(),
-                "total_rows": len(result)
+                "columns": [str(c) for c in df_r.columns],
+                "rows": _df_to_safe_rows(df_r),
+                "total_rows": int(len(result)),
             }
     except Exception:
         pass
