@@ -312,14 +312,69 @@ function ResultCard({
   );
 }
 
+// ─── Mini chart card used in overview grid ────────────────────────────────────
+
+function OverviewChartCard({
+  result,
+  theme,
+}: {
+  result: QueryResult;
+  theme: string;
+}) {
+  const plotData = result.chart?.plotly_json ? JSON.parse(result.chart.plotly_json) : null;
+  if (!plotData) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="rounded-xl border border-border bg-card overflow-hidden"
+    >
+      <div className="px-3 py-2 border-b border-border/60 flex items-center gap-2">
+        <BarChart2 className="w-3.5 h-3.5 text-primary shrink-0" />
+        <span className="text-xs font-medium truncate">{result.question}</span>
+      </div>
+      <div style={{ height: 260 }}>
+        <Plot
+          data={plotData.data}
+          layout={{
+            ...plotData.layout,
+            autosize: true,
+            paper_bgcolor: "transparent",
+            plot_bgcolor: "transparent",
+            font: {
+              family: "Inter, sans-serif",
+              color: theme === "dark" ? "#c9d1d9" : "#24292f",
+              size: 10,
+            },
+            margin: { t: 24, r: 16, l: 44, b: 36 },
+            legend: { bgcolor: "transparent", font: { size: 9 }, orientation: "h", y: -0.25 },
+            showlegend: false,
+          }}
+          useResizeHandler
+          style={{ width: "100%", height: "100%" }}
+          config={{ displayModeBar: false, responsive: true }}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
 function OverviewTab({
   summary,
+  overviewCharts,
+  overviewLoading,
   onSuggestedQuery,
+  theme,
 }: {
   summary: DatasetSummary;
+  overviewCharts: QueryResult[];
+  overviewLoading: boolean;
   onSuggestedQuery: (q: string) => void;
+  theme: string;
 }) {
   const totalNulls = summary.columns_info?.reduce((s, c) => s + c.null_count, 0) ?? 0;
   const numericCols = summary.columns_info?.filter((c) => /float|int/.test(c.dtype)) ?? [];
@@ -350,6 +405,37 @@ function OverviewTab({
           </div>
         ))}
       </div>
+
+      {/* Auto-generated charts */}
+      {(overviewLoading || overviewCharts.length > 0) && (
+        <div>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5" /> Auto-generated Charts
+            {overviewLoading && (
+              <span className="flex items-center gap-1 text-muted-foreground font-normal normal-case tracking-normal ml-1">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Analyzing…
+              </span>
+            )}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {overviewLoading && overviewCharts.length === 0
+              ? [0, 1, 2].map((i) => (
+                  <div key={i} className="rounded-xl border border-border bg-card overflow-hidden">
+                    <div className="px-3 py-2 border-b border-border/60">
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                    <div style={{ height: 260 }} className="flex items-center justify-center">
+                      <Skeleton className="w-full h-full" />
+                    </div>
+                  </div>
+                ))
+              : overviewCharts.map((r) => (
+                  <OverviewChartCard key={r.query_id} result={r} theme={theme} />
+                ))}
+          </div>
+        </div>
+      )}
 
       {/* Column schema table */}
       <div>
@@ -644,12 +730,16 @@ export default function Dashboard() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentQuery, setCurrentQuery] = useState("");
   const [queryResults, setQueryResults] = useState<QueryResult[]>([]);
+  const [overviewCharts, setOverviewCharts] = useState<QueryResult[]>([]);
+  const [overviewLoading, setOverviewLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "analyze" | "clean">("overview");
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Tracks the session ID for which we already ran auto-charts (prevents re-firing on re-renders)
+  const autoChartSessionRef = useRef<string | null>(null);
 
   const { data: datasetSummary, isLoading: isSummaryLoading } = useGetDatasetSummary(
     { session_id: sessionId || undefined },
@@ -660,6 +750,54 @@ export default function Dashboard() {
   const loadSampleMutation = useLoadSampleDataset();
   const runQueryMutation = useRunQuery();
   const exportMutation = useExportResults();
+
+  // Auto-generate overview charts once per session when summary is available
+  useEffect(() => {
+    if (!sessionId || !datasetSummary) return;
+    if (autoChartSessionRef.current === sessionId) return; // already done for this session
+    autoChartSessionRef.current = sessionId;
+
+    const numericCols = datasetSummary.columns_info?.filter((c) => /float|int/.test(c.dtype)) ?? [];
+    const categoricalCols = datasetSummary.columns_info?.filter((c) => c.dtype === "object") ?? [];
+
+    // Build 2–3 tailored queries depending on what columns are available
+    const queries: string[] = [];
+    if (categoricalCols.length > 0) {
+      queries.push(`Bar chart of top 10 ${categoricalCols[0].name} values by count`);
+    }
+    if (numericCols.length >= 1) {
+      queries.push(`Histogram of ${numericCols[0].name} distribution`);
+    }
+    if (numericCols.length >= 2) {
+      queries.push(`Scatter plot of ${numericCols[0].name} vs ${numericCols[1].name}`);
+    } else if (categoricalCols.length >= 2) {
+      queries.push(`Bar chart of top 10 ${categoricalCols[1].name} values by count`);
+    }
+
+    if (queries.length === 0) return;
+
+    setOverviewCharts([]);
+    setOverviewLoading(true);
+
+    // Fire all queries in parallel via raw fetch (not the single runQueryMutation)
+    Promise.allSettled(
+      queries.map((question) =>
+        fetch("/api/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question, session_id: sessionId }),
+        }).then((r) => (r.ok ? (r.json() as Promise<QueryResult>) : Promise.reject()))
+      )
+    ).then((settled) => {
+      const valid = settled
+        .filter(
+          (r): r is PromiseFulfilledResult<QueryResult> =>
+            r.status === "fulfilled" && r.value.chart?.plotly_json != null
+        )
+        .map((r) => r.value);
+      setOverviewCharts(valid);
+    }).finally(() => setOverviewLoading(false));
+  }, [sessionId, datasetSummary]);
 
   // Scroll to bottom of chat when new result arrives
   useEffect(() => {
@@ -758,6 +896,9 @@ export default function Dashboard() {
   const handleDisconnect = () => {
     setSessionId(null);
     setQueryResults([]);
+    setOverviewCharts([]);
+    setOverviewLoading(false);
+    autoChartSessionRef.current = null;
     setActiveTab("overview");
   };
 
@@ -858,6 +999,9 @@ export default function Dashboard() {
                   {datasetSummary ? (
                     <OverviewTab
                       summary={datasetSummary}
+                      overviewCharts={overviewCharts}
+                      overviewLoading={overviewLoading}
+                      theme={theme}
                       onSuggestedQuery={(q) => {
                         setCurrentQuery(q);
                         handleRunQuery(q);
