@@ -37,6 +37,7 @@ __pycache__/
 .python-version
 
 # Environment files
+backend/**/.env
 .env
 .env.*
 
