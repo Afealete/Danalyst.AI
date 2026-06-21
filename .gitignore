@@ -11,7 +11,7 @@ yarn.lock
 npm-debug.log
 pnpm-debug.log
 yarn-error.log
-
+git
 # Artifact workspace outputs
 .artifacts/**/node_modules/
 .artifacts/**/build/
