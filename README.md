@@ -31,12 +31,21 @@ cp backend/.env.example backend/.env
 
 ### 3. Run the backend
 ```bash
-cd backend && uvicorn main:app --reload --port 8080
+cd backend 
+uvicorn main:app --reload --port 8080
 ```
 
 ### 4. Run the frontend
-```bash
-pnpm --filter @workspace/csv-analyst run dev
+On Windows PowerShell:
+```powershell
+$env:PORT = "5173"
+$env:BASE_PATH = "/"
+pnpm --filter ./artifacts/csv-analyst... run dev
+```
+
+On cmd.exe:
+```cmd
+set PORT=5173&& set BASE_PATH=/&& pnpm --filter ./artifacts/csv-analyst... run dev
 ```
 
 ## API Endpoints

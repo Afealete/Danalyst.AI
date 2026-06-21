@@ -36,9 +36,30 @@ STRICT RULES:
    - A number (for numeric answers)
 7. Keep code concise and correct
 
+CHART STYLING (IMPORTANT - Apply to ALL generated figures):
+Use realistic professional color palettes with distinct series colors. After creating the figure, ALWAYS add professional styling:
+  fig.update_layout(
+      template="plotly_white",
+      colorway=["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"],
+      hovermode="x unified",
+      font=dict(family="Inter, -apple-system, sans-serif", size=12),
+      xaxis=dict(showgrid=True, gridwidth=1, gridcolor="rgba(0,0,0,0.08)"),
+      yaxis=dict(showgrid=True, gridwidth=1, gridcolor="rgba(0,0,0,0.08)"),
+      margin=dict(l=60, r=30, t=60, b=50)
+  )
+If using Plotly Express, also pass a professional color sequence with `color_discrete_sequence=["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"]` when creating the figure.
+
 EXAMPLE (no imports, use pre-loaded names):
   grouped = df.groupby('region')['revenue'].sum().reset_index()
   fig = px.bar(grouped, x='region', y='revenue', title='Revenue by Region')
+  fig.update_layout(
+      template="plotly_white",
+      hovermode="x unified",
+      font=dict(family="Inter, -apple-system, sans-serif", size=12),
+      xaxis=dict(showgrid=True, gridwidth=1, gridcolor="rgba(0,0,0,0.08)"),
+      yaxis=dict(showgrid=True, gridwidth=1, gridcolor="rgba(0,0,0,0.08)"),
+      margin=dict(l=60, r=30, t=60, b=50)
+  )
   result = grouped
 
 You must respond with a JSON object with these fields:

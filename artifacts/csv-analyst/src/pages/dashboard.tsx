@@ -189,18 +189,54 @@ function ResultCard({
               ...plotData.layout,
               autosize: true,
               paper_bgcolor: "transparent",
-              plot_bgcolor: "transparent",
+              plot_bgcolor: theme === "dark" ? "rgba(30,30,30,0.3)" : "rgba(255,255,255,0.4)",
+              colorway: theme === "dark"
+                ? ["#6cb9ff", "#ffb86c", "#7ee5a7", "#ff7e7e", "#b691ff", "#ffb37e"]
+                : ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"],
               font: {
-                family: "Inter, sans-serif",
-                color: theme === "dark" ? "#c9d1d9" : "#24292f",
-                size: 11,
+                family: "Inter, -apple-system, sans-serif",
+                color: theme === "dark" ? "#e0e0e0" : "#1f2937",
+                size: 12,
               },
-              margin: { t: 40, r: 24, l: 56, b: 48 },
-              legend: { bgcolor: "transparent", font: { size: 10 } },
+              title: { font: { size: 14, weight: "bold" } },
+              margin: { t: 50, r: 30, l: 60, b: 50 },
+              xaxis: {
+                showgrid: true,
+                gridwidth: 1,
+                gridcolor: theme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+                showline: true,
+                linewidth: 1.5,
+                linecolor: theme === "dark" ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+              },
+              yaxis: {
+                showgrid: true,
+                gridwidth: 1,
+                gridcolor: theme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+                showline: true,
+                linewidth: 1.5,
+                linecolor: theme === "dark" ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+              },
+              hovermode: "x unified",
+              legend: {
+                bgcolor: "transparent",
+                font: { size: 11 },
+                bordercolor: theme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+                borderwidth: 1,
+              },
             }}
             useResizeHandler
             style={{ width: "100%", height: "100%" }}
-            config={{ displayModeBar: true, modeBarButtonsToRemove: ["lasso2d", "select2d"], responsive: true }}
+            config={{
+              displayModeBar: true,
+              modeBarButtonsToRemove: ["lasso2d", "select2d", "autoScale2d"],
+              responsive: true,
+              toImageButtonOptions: {
+                format: "png",
+                width: 1200,
+                height: 600,
+                scale: 2,
+              },
+            }}
           />
         </div>
       )}
@@ -342,13 +378,33 @@ function OverviewChartCard({
             ...plotData.layout,
             autosize: true,
             paper_bgcolor: "transparent",
-            plot_bgcolor: "transparent",
+            plot_bgcolor: theme === "dark" ? "rgba(30,30,30,0.2)" : "rgba(255,255,255,0.3)",
+            colorway: theme === "dark"
+              ? ["#6cb9ff", "#ffb86c", "#7ee5a7", "#ff7e7e", "#b691ff", "#ffb37e"]
+              : ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"],
             font: {
-              family: "Inter, sans-serif",
-              color: theme === "dark" ? "#c9d1d9" : "#24292f",
-              size: 10,
+              family: "Inter, -apple-system, sans-serif",
+              color: theme === "dark" ? "#e0e0e0" : "#1f2937",
+              size: 11,
             },
-            margin: { t: 24, r: 16, l: 44, b: 36 },
+            margin: { t: 28, r: 20, l: 48, b: 40 },
+            xaxis: {
+              showgrid: true,
+              gridwidth: 0.5,
+              gridcolor: theme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
+              showline: true,
+              linewidth: 1,
+              linecolor: theme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+            },
+            yaxis: {
+              showgrid: true,
+              gridwidth: 0.5,
+              gridcolor: theme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
+              showline: true,
+              linewidth: 1,
+              linecolor: theme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+            },
+            hovermode: "x unified",
             legend: { bgcolor: "transparent", font: { size: 9 }, orientation: "h", y: -0.25 },
             showlegend: false,
           }}
@@ -747,6 +803,7 @@ export default function Dashboard() {
   );
 
   const { data: sampleDatasets } = useGetSampleDatasets();
+  const sampleDatasetsList = Array.isArray(sampleDatasets) ? sampleDatasets : [];
   const loadSampleMutation = useLoadSampleDataset();
   const runQueryMutation = useRunQuery();
   const exportMutation = useExportResults();
@@ -936,7 +993,7 @@ export default function Dashboard() {
             onDrop={onDrop}
             isDragActive={isDragActive}
             isUploading={isUploading}
-            sampleDatasets={sampleDatasets}
+            sampleDatasets={sampleDatasetsList}
             onLoadSample={handleLoadSample}
             loadingId={loadingId}
             getInputProps={getInputProps}
