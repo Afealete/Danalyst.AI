@@ -1,18 +1,47 @@
 # See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
-# compiled output
-dist
-tmp
-out-tsc
-*.tsbuildinfo
-.expo
-.expo-shared
+# Node.js / package manager
+node_modules/
+**/node_modules/
+artifacts/**/node_modules/
+.pnpm-store/
+.pnp.*
+package-lock.json
+yarn.lock
+npm-debug.log
+pnpm-debug.log
+yarn-error.log
 
-# dependencies
-node_modules
+# Artifact workspace outputs
+.artifacts/**/node_modules/
+.artifacts/**/build/
+
+# Build outputs
+dist/
+build/
+out-tsc/
+*.tsbuildinfo
+coverage/
+.tmp/
+
+# Python
+dvenv/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.mypy_cache/
+.pytest_cache/
+.python-version
+
+# Environment files
+.env
+.env.*
 
 # IDEs and editors
-/.idea
+.idea/
 .project
 .classpath
 .c9/
@@ -20,30 +49,25 @@ node_modules
 .settings/
 *.sublime-workspace
 
-# IDE - VSCode
+# VS Code
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# misc
-/.sass-cache
-/connect.lock
-/coverage
-/libpeerconnection.log
-npm-debug.log
-yarn-error.log
-testem.log
-/typings
-
-# System Files
+# System files
 .DS_Store
 Thumbs.db
 
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
-
-# Replit
+# Misc
+.sass-cache/
 .cache/
 .local/
+/connect.lock
+/libpeerconnection.log
+/typings
+
+# Optional git files
+# Keep any source-managed GitHub config or instructions
+!.github/
