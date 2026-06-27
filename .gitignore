@@ -36,10 +36,31 @@ __pycache__/
 .pytest_cache/
 .python-version
 
-# Environment files
+# Environment and secret files
 backend/**/.env
+backend/**/.env.*
+backend/**/.env.example
 .env
 .env.*
+.env.example
+.env.local
+.env.development
+.env.production
+.env.test
+.env.secret
+
+# Certificate, key, and credential files
+*.key
+*.pem
+*.pfx
+*.p12
+*.jks
+*.crt
+*.csr
+*.ovpn
+*.credentials
+.aws/
+.azure/
 
 # IDEs and editors
 .idea/
