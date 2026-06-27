@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 
-load_dotenv()
+_BACKEND_DIR = os.path.dirname(__file__)
+load_dotenv(os.path.join(_BACKEND_DIR, ".env"))
 
 from routes.health import router as health_router
 from routes.upload import router as upload_router

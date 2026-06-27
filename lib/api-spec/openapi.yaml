@@ -354,6 +354,11 @@ components:
           type: ["string", "null"]
         execution_time_ms:
           type: number
+        ai_status:
+          type: string
+          enum: [gemini, fallback]
+        ai_error:
+          type: ["string", "null"]
 
     ChartData:
       type: object

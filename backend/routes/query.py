@@ -91,6 +91,14 @@ async def run_query(body: QueryInput):
             preview_str = answer
 
     insights = await generate_insights(question, answer, preview_str or answer)
+    if ai_result.get("used_fallback"):
+        fallback_reason = ai_result.get("fallback_reason") or "Gemini API was not available"
+        friendly_fallback = (
+            "The AI helper is temporarily unavailable, so I used a simpler built-in analysis instead."
+            if "quota" in fallback_reason.lower() or "429" in fallback_reason.lower()
+            else f"The AI helper is currently unavailable, so I used a simpler built-in analysis instead."
+        )
+        insights = [friendly_fallback, *insights]
 
     query_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
@@ -125,6 +133,8 @@ async def run_query(body: QueryInput):
         "insights": insights,
         "generated_code": code,
         "execution_time_ms": round(exec_result.execution_time_ms, 1),
+        "ai_status": "fallback" if ai_result.get("used_fallback") else "gemini",
+        "ai_error": ai_result.get("fallback_reason") if ai_result.get("used_fallback") else None,
     }
 
 

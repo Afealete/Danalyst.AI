@@ -2,7 +2,7 @@ import React from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Database, Zap, Shield, BarChart3, ChevronRight, Terminal, Network, Activity } from "lucide-react";
-import { SiPython, SiPandas, SiOpenai } from "react-icons/si";
+import { SiPython, SiPandas } from "react-icons/si";
 
 const FADE_UP = {
   hidden: { opacity: 0, y: 30 },
@@ -42,8 +42,8 @@ export default function Landing() {
             initial="hidden" animate="visible" variants={STAGGER}
           >
             <motion.div variants={FADE_UP} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-mono mb-4">
-              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              v2.0 Engine Live
+              <span className="w-2 h-2 rounded-full bg-primary" />
+              Data Analysis Platform
             </motion.div>
             
             <motion.h1 variants={FADE_UP} className="text-5xl md:text-7xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-foreground to-foreground/70 leading-tight">
@@ -51,7 +51,7 @@ export default function Landing() {
             </motion.h1>
             
             <motion.p variants={FADE_UP} className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Upload spreadsheets, ask questions in plain English, and get instant charts, insights, and executable Python code. The precision of a senior data scientist, the speed of a machine.
+              Upload spreadsheets, ask questions in plain English, and get instant charts, insights, and executable Python code.
             </motion.p>
             
             <motion.div variants={FADE_UP} className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
@@ -77,36 +77,35 @@ export default function Landing() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="max-w-5xl mx-auto rounded-xl border border-border bg-card/50 shadow-2xl overflow-hidden backdrop-blur-sm"
+            className="max-w-5xl mx-auto rounded-xl border border-border bg-card/50 shadow-lg overflow-hidden"
           >
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-black/40">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-                <div className="w-3 h-3 rounded-full bg-green-500/80" />
-              </div>
-              <div className="mx-auto text-xs text-muted-foreground font-mono">session_id: a7f8-92bc</div>
-            </div>
-            <div className="p-6 md:p-8 grid md:grid-cols-2 gap-8 items-center bg-black/20">
+            <div className="p-6 md:p-8 grid md:grid-cols-2 gap-8 items-center">
               <div className="space-y-4">
-                <div className="p-3 bg-secondary/30 rounded border border-border/50 text-sm font-mono text-muted-foreground">
-                  {">"} Load dataset: Q4_Revenue.csv
-                  <br />
-                  <span className="text-green-400">✓ Loaded 45,210 rows, 12 columns</span>
-                </div>
-                <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
-                  <p className="text-sm">"Show me the top 5 regions by total revenue, and plot a bar chart."</p>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Example Question</p>
+                  <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
+                    <p className="text-base font-medium">"Show me the top 5 regions by total revenue"</p>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Loader2 className="w-3 h-3 animate-spin text-primary" /> Analyzing distribution...
-                  </div>
-                  <div className="h-1 bg-secondary rounded-full overflow-hidden">
-                    <div className="h-full w-2/3 bg-primary" />
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Instant Result</p>
+                  <div className="p-4 bg-secondary/40 rounded-lg border border-border space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-primary" />
+                      <span className="text-sm">North: $2.4M</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-primary/70" />
+                      <span className="text-sm">East: $1.8M</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-primary/50" />
+                      <span className="text-sm">West: $1.2M</span>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="border border-border/50 bg-background rounded-lg p-4 h-64 flex items-center justify-center text-muted-foreground text-sm flex-col gap-3">
+              <div className="border border-border/50 bg-background rounded-lg p-6 h-64 flex items-center justify-center text-muted-foreground text-sm flex-col gap-3">
                 <BarChart3 className="w-8 h-8 text-primary/50" />
                 <span className="font-mono text-xs">Chart rendered in 1.2s</span>
               </div>
@@ -118,7 +117,7 @@ export default function Landing() {
         <section className="py-24 px-6 border-t border-border/50 bg-black/10">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-16 space-y-4">
-              <h2 className="text-3xl font-bold tracking-tight">Intelligence at scale</h2>
+              <h2 className="text-3xl font-bold tracking-tight">Data analysis that's simple</h2>
               <p className="text-muted-foreground">Built for datasets that break Excel. Powered by modern analytics stacks.</p>
             </div>
             
@@ -157,7 +156,6 @@ export default function Landing() {
             <div className="flex flex-wrap justify-center gap-8 md:gap-16 opacity-60 grayscale hover:grayscale-0 hover:opacity-100 transition-all duration-500">
               <div className="flex items-center gap-2 text-xl font-bold"><SiPython className="w-8 h-8" /> Python</div>
               <div className="flex items-center gap-2 text-xl font-bold"><SiPandas className="w-8 h-8" /> pandas</div>
-              <div className="flex items-center gap-2 text-xl font-bold"><SiOpenai className="w-8 h-8" /> OpenAI</div>
             </div>
           </div>
         </section>

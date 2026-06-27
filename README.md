@@ -5,7 +5,7 @@ Upload any CSV or Excel spreadsheet, ask questions in plain English, and instant
 ## Features
 
 - Drag-and-drop CSV / Excel upload
-- Natural language queries powered by OpenAI GPT-4o-mini
+- Natural language queries powered by the Gemini API
 - Auto-generated Plotly charts (bar, line, pie, histogram, scatter)
 - Dataset preview with column stats and missing value analysis
 - Safe code execution with AST validation (no `os`, `subprocess`, `eval`, etc.)
@@ -21,10 +21,10 @@ Upload any CSV or Excel spreadsheet, ask questions in plain English, and instant
 cd backend && pip install -r requirements.txt
 ```
 
-### 2. Set your OpenAI API key (optional)
+### 2. Set your Gemini API key (optional)
 ```bash
 cp backend/.env.example backend/.env
-# Edit backend/.env and add your OPENAI_API_KEY
+# Edit backend/.env and add your GEMINI_API_KEY
 ```
 
 > **Without an API key**, the app still works using a built-in rule-based fallback that handles common questions (distributions, top values, trends, correlations, missing values).
@@ -74,7 +74,7 @@ backend/
 │   ├── dataset.py       # Preview, summary, sample data
 │   └── query.py         # NL query, history, export
 ├── services/
-│   ├── ai_service.py    # OpenAI code generation + insights
+│   ├── ai_service.py    # Gemini code generation + insights
 │   └── execution.py     # Safe pandas code execution
 ├── utils/
 │   ├── validator.py     # AST-based code safety validator

@@ -1,23 +1,63 @@
-"""AI service for generating pandas code from natural language queries."""
+"""Gemini AI service for generating pandas code from natural language queries."""
 import os
 import json
+import logging
+import random
 from typing import Optional
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI as GeminiCompatibleClient
+from dotenv import load_dotenv
 
-_client: Optional[AsyncOpenAI] = None
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+
+_client: Optional[GeminiCompatibleClient] = None
+_logger = logging.getLogger(__name__)
+
+GEMINI_BASE_URL = os.environ.get(
+    "GEMINI_BASE_URL",
+    "https://generativelanguage.googleapis.com/v1beta/openai/"
+)
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
 
 
-def get_client() -> Optional[AsyncOpenAI]:
+def get_dynamic_colors() -> list[str]:
+    """Generate a random set of distinct professional colors."""
+    color_palettes = [
+        ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8", "#F7DC6F"],
+        ["#6C5CE7", "#A29BFE", "#00B894", "#FDCB6E", "#E17055", "#74B9FF"],
+        ["#2E86AB", "#A23B72", "#F18F01", "#C73E1D", "#6A994E", "#BC4749"],
+        ["#264653", "#2A9D8F", "#E9C46A", "#F4A261", "#E76F51", "#9D84B7"],
+        ["#D62828", "#F77F00", "#FCBF49", "#EAE2B7", "#003049", "#780000"],
+    ]
+    return random.choice(color_palettes)
+
+
+def get_client() -> Optional[GeminiCompatibleClient]:
     global _client
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return None
     if _client is None:
-        _client = AsyncOpenAI(api_key=api_key)
+        _client = GeminiCompatibleClient(api_key=api_key, base_url=GEMINI_BASE_URL)
     return _client
 
 
-SYSTEM_PROMPT = """You are a data analyst assistant. Given a pandas DataFrame (already loaded as `df`) and a user's question, generate SAFE Python code to answer the question.
+def _extract_json_object(content: str) -> dict:
+    """Parse a JSON object, tolerating providers that wrap it in extra text."""
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError:
+        start = content.find("{")
+        end = content.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            raise
+        parsed = json.loads(content[start:end + 1])
+
+    if not isinstance(parsed, dict):
+        raise ValueError("Gemini response was not a JSON object.")
+    return parsed
+
+
+SYSTEM_PROMPT = """You are a data analyst assistant helping non-technical business users understand their data. Given a pandas DataFrame (already loaded as `df`) and a user's question, generate SAFE Python code to analyze the data.
 
 STRICT RULES:
 1. The following are ALREADY available in the namespace — do NOT import them:
@@ -35,30 +75,39 @@ STRICT RULES:
    - A string (for text answers)
    - A number (for numeric answers)
 7. Keep code concise and correct
+8. Choose the MOST APPROPRIATE visualization for the data type:
+   - Bar charts for comparisons and categories
+   - Line charts for trends over time
+   - Pie charts only for showing proportions of a whole (not for many categories)
+   - Scatter plots for relationships between two variables
+   - Histograms for distributions
+9. Make explanations clear and understandable for non-technical people - avoid jargon
 
 CHART STYLING (IMPORTANT - Apply to ALL generated figures):
-Use realistic professional color palettes with distinct series colors. After creating the figure, ALWAYS add professional styling:
+Use professional styling with vibrant colors. After creating the figure, ALWAYS add professional styling:
   fig.update_layout(
       template="plotly_white",
-      colorway=["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"],
       hovermode="x unified",
-      font=dict(family="Inter, -apple-system, sans-serif", size=12),
+      showlegend=True,
+      font=dict(family="Inter, -apple-system, sans-serif", size=13),
       xaxis=dict(showgrid=True, gridwidth=1, gridcolor="rgba(0,0,0,0.08)"),
       yaxis=dict(showgrid=True, gridwidth=1, gridcolor="rgba(0,0,0,0.08)"),
-      margin=dict(l=60, r=30, t=60, b=50)
+      margin=dict(l=60, r=30, t=80, b=60),
+      title_font_size=16
   )
-If using Plotly Express, also pass a professional color sequence with `color_discrete_sequence=["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"]` when creating the figure.
+Always include descriptive titles and axis labels that explain what's being shown.
 
 EXAMPLE (no imports, use pre-loaded names):
-  grouped = df.groupby('region')['revenue'].sum().reset_index()
-  fig = px.bar(grouped, x='region', y='revenue', title='Revenue by Region')
+  grouped = df.groupby('region')['revenue'].sum().reset_index().sort_values('revenue', ascending=False)
+  fig = px.bar(grouped, x='region', y='revenue', title='Total Revenue by Region')
   fig.update_layout(
       template="plotly_white",
       hovermode="x unified",
-      font=dict(family="Inter, -apple-system, sans-serif", size=12),
+      font=dict(family="Inter, -apple-system, sans-serif", size=13),
       xaxis=dict(showgrid=True, gridwidth=1, gridcolor="rgba(0,0,0,0.08)"),
       yaxis=dict(showgrid=True, gridwidth=1, gridcolor="rgba(0,0,0,0.08)"),
-      margin=dict(l=60, r=30, t=60, b=50)
+      margin=dict(l=60, r=30, t=80, b=60),
+      title_font_size=16
   )
   result = grouped
 
@@ -66,7 +115,7 @@ You must respond with a JSON object with these fields:
 {
   "code": "python code here",
   "chart_type": "bar|line|pie|scatter|histogram|none",
-  "explanation": "brief explanation of what the code does"
+  "explanation": "plain English explanation of what this shows and why it matters"
 }
 
 Respond ONLY with the JSON object, no markdown, no extra text."""
@@ -83,7 +132,7 @@ async def generate_analysis_code(
     """
     client = get_client()
     if not client:
-        return _fallback_analysis(question)
+        return _fallback_analysis(question, error="GEMINI_API_KEY is not configured")
 
     user_message = f"""DataFrame schema:
 {df_schema}
@@ -96,36 +145,68 @@ User question: {question}
 Generate Python code to answer this question. Remember: DataFrame is already loaded as `df`."""
 
     try:
-        response = await client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_message}
-            ],
-            temperature=0.1,
-            max_tokens=1000,
-            response_format={"type": "json_object"}
-        )
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_message}
+        ]
+        try:
+            response = await client.chat.completions.create(
+                model=GEMINI_MODEL,
+                messages=messages,
+                temperature=0.1,
+                max_tokens=1000,
+                response_format={"type": "json_object"}
+            )
+        except Exception as first_error:
+            _logger.warning(
+                "Gemini code generation failed with response_format; retrying without it: %s",
+                first_error,
+            )
+            response = await client.chat.completions.create(
+                model=GEMINI_MODEL,
+                messages=messages,
+                temperature=0.1,
+                max_tokens=1000,
+            )
 
         content = response.choices[0].message.content
-        parsed = json.loads(content)
+        parsed = _extract_json_object(content or "")
         return {
             "code": parsed.get("code", "result = 'Could not generate code'"),
             "chart_type": parsed.get("chart_type", "none"),
-            "explanation": parsed.get("explanation", "")
+            "explanation": parsed.get("explanation", ""),
+            "used_fallback": False,
+            "fallback_reason": None,
         }
     except Exception as e:
+        _logger.exception("Gemini code generation failed; using rule-based fallback.")
         return _fallback_analysis(question, error=str(e))
 
 
-INSIGHT_SYSTEM_PROMPT = """You are a data analyst. Given data analysis results, write 2-4 concise, human-readable insights.
+INSIGHT_SYSTEM_PROMPT = """You are a data analyst writing insights for business managers and non-technical people. Given analysis results, write 2-4 short, clear, and practical insights in plain English.
 
-Each insight should be a single sentence like:
-- "The East region generated 42% of total revenue."
-- "Sales peaked in Q3 with $1.2M, 34% above average."
-- "Product A has the highest return rate at 8.3%."
+Guidelines:
+- Write for everyday business readers, not technical experts
+- Use simple words and short sentences
+- Avoid jargon, acronyms, and technical terms like p-value, variance, distribution, correlation, or regression
+- Focus on what matters most for decision-making
+- Start each insight with a clear observation or fact
+- Include concrete numbers when they help explain the point
+- Explain why the finding matters in business terms
+- When useful, add a simple recommendation such as what to focus on, what to watch, or what to do next
+- Keep each insight friendly, natural, and easy to read
 
-Return a JSON array of insight strings. No markdown, no extra text."""
+Good style examples:
+- "The North region brings in more than half of revenue, so it deserves the most attention."
+- "Sales jump in the summer months, which suggests it may be smart to plan inventory earlier."
+- "A small number of products drive most of the sales, so the team should focus on those first."
+- "Customer complaints dropped after the process change, which is a strong sign the update is helping."
+
+Bad style examples:
+- "The statistical summary indicates significant variance across categories."
+- "The metrics show a notable deviation from the baseline."
+
+Return a JSON object with this shape: {"insights": ["first insight", "second insight"]}. No markdown, no extra text."""
 
 
 async def generate_insights(
@@ -140,7 +221,7 @@ async def generate_insights(
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=GEMINI_MODEL,
             messages=[
                 {"role": "system", "content": INSIGHT_SYSTEM_PROMPT},
                 {"role": "user", "content": f"Question: {question}\n\nResult preview:\n{result_preview}\n\nGenerate insights."}
@@ -151,21 +232,19 @@ async def generate_insights(
         )
 
         content = response.choices[0].message.content
-        parsed = json.loads(content)
-        if isinstance(parsed, list):
-            return parsed
-        if isinstance(parsed, dict):
-            for key in ["insights", "data", "results"]:
-                if key in parsed and isinstance(parsed[key], list):
-                    return parsed[key]
+        parsed = _extract_json_object(content or "")
+        for key in ["insights", "data", "results"]:
+            if key in parsed and isinstance(parsed[key], list):
+                return parsed[key]
         return []
-    except Exception:
+    except Exception as e:
+        _logger.warning("Gemini insight generation failed: %s", e)
         return []
 
 
 def _fallback_analysis(question: str, error: str = "") -> dict:
     """
-    Fallback rule-based analysis when OpenAI is not configured.
+    Fallback rule-based analysis when Gemini is not configured or unavailable.
     IMPORTANT: Generated code must NOT use import statements — pd, np, px, go are
     pre-injected into the exec namespace by the execution service.
     """
@@ -332,5 +411,23 @@ else:
 result = df[num_cols].describe().round(2) if num_cols else df.head(20)"""
         chart_type = "none"
 
-    suffix = f" (OpenAI not configured{': ' + error if error else ''})"
-    return {"code": code, "chart_type": chart_type, "explanation": "Rule-based analysis" + suffix}
+    suffix = f" (Gemini fallback used{': ' + error if error else ''})"
+    # Generate a more specific explanation for fallback analysis
+    explanations = {
+        "pie": "Shows how the items break down - like seeing what slice each category takes.",
+        "line": "Shows how things change over time - like watching a trend go up or down.",
+        "histogram": "Shows how spread out values are - like seeing if most are high, low, or mixed.",
+        "scatter": "Shows if two things are connected - like whether one goes up when the other does.",
+        "bar": "Compares amounts across different groups - like seeing which group has the most.",
+        "none": "Summarizes your data - showing key numbers and patterns."
+    }
+    explanation = explanations.get(chart_type, "Analyzes your data") + suffix
+    if error:
+        _logger.warning("Using rule-based fallback analysis: %s", error)
+    return {
+        "code": code,
+        "chart_type": chart_type,
+        "explanation": explanation,
+        "used_fallback": True,
+        "fallback_reason": error or "Gemini API was not available",
+    }

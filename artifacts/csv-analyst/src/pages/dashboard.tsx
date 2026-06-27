@@ -137,6 +137,134 @@ function generateCleaningCode(summary: DatasetSummary): string {
   return lines.join("\n");
 }
 
+function getTraceColorPalette(theme: string, traceType: string): string[] {
+  const dark = [
+    "#FF5C7A",
+    "#FF8C42",
+    "#FFD166",
+    "#34D399",
+    "#38BDF8",
+    "#818CF8",
+    "#F472B6",
+    "#2DD4BF",
+    "#FB923C",
+    "#A78BFA",
+  ];
+  const light = [
+    "#DC2626",
+    "#EA580C",
+    "#D97706",
+    "#16A34A",
+    "#2563EB",
+    "#7C3AED",
+    "#DB2777",
+    "#0891B2",
+    "#0F766E",
+    "#9333EA",
+  ];
+
+  const palette = theme === "dark" ? dark : light;
+
+  switch (traceType) {
+    case "scatter":
+    case "scattergl":
+    case "line":
+      return theme === "dark"
+        ? ["#38BDF8", "#A78BFA", "#FB923C", "#34D399"]
+        : ["#2563EB", "#7C3AED", "#EA580C", "#16A34A"];
+    case "bar":
+      return theme === "dark"
+        ? ["#F472B6", "#34D399", "#60A5FA", "#F59E0B"]
+        : ["#DB2777", "#0D9488", "#3B82F6", "#D97706"];
+    case "pie":
+      return theme === "dark"
+        ? ["#FF5C7A", "#FF8C42", "#FFD166", "#34D399", "#38BDF8", "#818CF8", "#F472B6", "#2DD4BF"]
+        : ["#DC2626", "#EA580C", "#D97706", "#16A34A", "#2563EB", "#7C3AED", "#DB2777", "#0891B2"];
+    case "histogram":
+      return theme === "dark"
+        ? ["#2DD4BF", "#60A5FA", "#F472B6"]
+        : ["#0891B2", "#3B82F6", "#DB2777"];
+    case "box":
+      return theme === "dark"
+        ? ["#A78BFA", "#F59E0B", "#34D399"]
+        : ["#7C3AED", "#D97706", "#16A34A"];
+    default:
+      return palette;
+  }
+}
+
+function stylePlotDataForTheme(plotData: any, theme: string) {
+  if (!plotData?.data) return plotData;
+
+  const styledData = plotData.data.map((trace: any, index: number) => {
+    const traceType = String(trace.type || "scatter").toLowerCase();
+    const palette = getTraceColorPalette(theme, traceType);
+    const baseColor = palette[index % palette.length];
+
+    const nextTrace = { ...trace };
+
+    if (traceType === "scatter" || traceType === "scattergl" || traceType === "line") {
+      nextTrace.mode = nextTrace.mode || "lines+markers";
+      nextTrace.marker = {
+        ...nextTrace.marker,
+        color: baseColor,
+        size: nextTrace.marker?.size || 8,
+      };
+      nextTrace.line = {
+        ...nextTrace.line,
+        color: baseColor,
+        width: nextTrace.line?.width || 2.5,
+      };
+    } else if (traceType === "bar") {
+      nextTrace.marker = {
+        ...nextTrace.marker,
+        color: baseColor,
+        line: {
+          color: theme === "dark" ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.12)",
+          width: 1,
+        },
+      };
+    } else if (traceType === "pie") {
+      nextTrace.marker = {
+        ...nextTrace.marker,
+        colors: palette,
+      };
+    } else if (traceType === "histogram") {
+      nextTrace.marker = {
+        ...nextTrace.marker,
+        color: baseColor,
+        line: {
+          color: theme === "dark" ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.12)",
+          width: 1,
+        },
+      };
+    } else if (traceType === "box") {
+      nextTrace.line = {
+        ...nextTrace.line,
+        color: baseColor,
+        width: nextTrace.line?.width || 2,
+      };
+      nextTrace.marker = {
+        ...nextTrace.marker,
+        color: baseColor,
+      };
+    } else {
+      nextTrace.marker = {
+        ...nextTrace.marker,
+        color: baseColor,
+      };
+      nextTrace.line = {
+        ...nextTrace.line,
+        color: baseColor,
+      };
+    }
+
+    return nextTrace;
+  });
+
+  return { ...plotData, data: styledData };
+}
+
 // ─── Result Card (chart + table + insights inline) ───────────────────────────
 
 function ResultCard({
@@ -159,6 +287,7 @@ function ResultCard({
   const hasTable = result.result_table && result.result_table.columns?.length > 0;
 
   const plotData = hasChart ? JSON.parse(result.chart!.plotly_json!) : null;
+  const styledPlotData = plotData ? stylePlotDataForTheme(plotData, theme) : null;
 
   return (
     <motion.div
@@ -178,21 +307,21 @@ function ResultCard({
       </div>
 
       {/* Chart — fixed height so Plotly always has room to render */}
-      {hasChart && plotData && (
+      {hasChart && styledPlotData && (
         <div
           className="rounded-xl border border-border bg-card overflow-hidden"
           style={{ height: 380 }}
         >
           <Plot
-            data={plotData.data}
+            data={styledPlotData.data}
             layout={{
-              ...plotData.layout,
+              ...styledPlotData.layout,
               autosize: true,
               paper_bgcolor: "transparent",
               plot_bgcolor: theme === "dark" ? "rgba(30,30,30,0.3)" : "rgba(255,255,255,0.4)",
               colorway: theme === "dark"
-                ? ["#6cb9ff", "#ffb86c", "#7ee5a7", "#ff7e7e", "#b691ff", "#ffb37e"]
-                : ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"],
+                ? ["#FF3333", "#FF8C33", "#FFD633", "#33CC33", "#3366FF", "#9933FF", "#FF33CC", "#00CCCC", "#FF6666", "#FFAA00"]
+                : ["#CC0000", "#FF6600", "#FFCC00", "#009900", "#0033FF", "#6600CC", "#FF0099", "#00AACC", "#FF3333", "#FF8800"],
               font: {
                 family: "Inter, -apple-system, sans-serif",
                 color: theme === "dark" ? "#e0e0e0" : "#1f2937",
@@ -358,7 +487,8 @@ function OverviewChartCard({
   theme: string;
 }) {
   const plotData = result.chart?.plotly_json ? JSON.parse(result.chart.plotly_json) : null;
-  if (!plotData) return null;
+  const styledPlotData = plotData ? stylePlotDataForTheme(plotData, theme) : null;
+  if (!styledPlotData) return null;
 
   return (
     <motion.div
@@ -373,15 +503,15 @@ function OverviewChartCard({
       </div>
       <div style={{ height: 260 }}>
         <Plot
-          data={plotData.data}
+          data={styledPlotData.data}
           layout={{
-            ...plotData.layout,
+            ...styledPlotData.layout,
             autosize: true,
             paper_bgcolor: "transparent",
             plot_bgcolor: theme === "dark" ? "rgba(30,30,30,0.2)" : "rgba(255,255,255,0.3)",
             colorway: theme === "dark"
-              ? ["#6cb9ff", "#ffb86c", "#7ee5a7", "#ff7e7e", "#b691ff", "#ffb37e"]
-              : ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"],
+              ? ["#FF3333", "#FF8C33", "#FFD633", "#33CC33", "#3366FF", "#9933FF", "#FF33CC", "#00CCCC", "#FF6666", "#FFAA00"]
+              : ["#CC0000", "#FF6600", "#FFCC00", "#009900", "#0033FF", "#6600CC", "#FF0099", "#00AACC", "#FF3333", "#FF8800"],
             font: {
               family: "Inter, -apple-system, sans-serif",
               color: theme === "dark" ? "#e0e0e0" : "#1f2937",
@@ -701,7 +831,7 @@ function UploadState({
             <Database className="w-7 h-7 text-primary" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Connect a dataset</h1>
-          <p className="text-muted-foreground">Upload a CSV or Excel file to begin AI-powered analysis</p>
+          <p className="text-muted-foreground">Upload a CSV or Excel file to begin data analysis</p>
         </div>
 
         <div
@@ -1086,9 +1216,9 @@ export default function Dashboard() {
                             <MessageSquare className="w-7 h-7 text-primary" />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-base">Ask anything about your data</h3>
+                            <h3 className="font-semibold text-base">Ask questions about your data</h3>
                             <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
-                              Type a question below — the AI generates charts, tables, and insights instantly.
+                              Type a question below and get charts, tables, and insights instantly.
                             </p>
                           </div>
                           {datasetSummary && (
